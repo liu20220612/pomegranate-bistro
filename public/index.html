@@ -1167,68 +1167,51 @@ class SyncManager {
         try {
             // 这里先用一个占位URL，部署到Vercel后再修改为真实域名
             const serverUrl = 'https://shiliu220612.vercel.app';
-            
-            console.log('连接到服务器:', serverUrl);
+            console.log('🔗 连接尝试:', serverUrl);
             
             this.socket = io(serverUrl, {
-                path: '/api/socket',
-                transports: ['websocket', 'polling']
+                path: '/api/socket.io',
+                transports: ['polling', 'websocket'],
+                timeout: 10000
             });
             
             this.socket.on('connect', () => {
-                console.log('WebSocket连接成功');
+                console.log('✅ WebSocket连接成功!');
                 this.isConnected = true;
                 this.updateStatus(true);
-                this.reconnectAttempts = 0;
                 
                 // 发送设备注册信息
                 this.socket.emit('register', {
                     deviceId: this.deviceId,
                     timestamp: Date.now()
                 });
-                
-                // 请求同步最新菜单
-                this.socket.emit('sync_request', {
-                    deviceId: this.deviceId,
-                    timestamp: Date.now()
-                });
             });
-            
-            this.socket.on('menu_update', (data) => {
-                this.handleMenuUpdate(data);
-            });
-            
-            this.socket.on('sync_request', (data) => {
-                this.handleSyncRequest(data);
-            });
-            
-            this.socket.on('device_connected', (data) => {
-                this.handleDeviceConnected(data);
-            });
-            
-            this.socket.on('device_disconnected', (data) => {
-                this.handleDeviceDisconnected(data);
-            });
-            
-            this.socket.on('disconnect', () => {
-                console.log('WebSocket连接断开');
-                this.isConnected = false;
-                this.updateStatus(false);
-                this.attemptReconnect();
-            });
-            
-            this.socket.on('connect_error', (error) => {
-                console.error('连接错误:', error);
-                this.isConnected = false;
-                this.updateStatus(false);
-            });
-            
-        } catch (error) {
-            console.error('连接失败:', error);
+           this.socket.on('welcome', (data) => {
+            console.log('👋 服务器欢迎消息:', data);
+        });
+        
+        this.socket.on('menu_update', (data) => {
+            console.log('📝 收到远程菜单更新:', data);
+            this.handleMenuUpdate(data);
+        });
+        
+        this.socket.on('connect_error', (error) => {
+            console.error('❌ 连接失败:', error.message);
+            this.isConnected = false;
             this.updateStatus(false);
-            this.attemptReconnect();
-        }
+        });
+        
+        this.socket.on('disconnect', (reason) => {
+            console.log('🔌 连接断开:', reason);
+            this.isConnected = false;
+            this.updateStatus(false);
+        });
+        
+    } catch (error) {
+        console.error('💥 连接异常:', error);
+        this.updateStatus(false);
     }
+}
     
     // 处理菜单更新
     handleMenuUpdate(data) {
@@ -1462,3 +1445,4 @@ init = function() {
 </body>
 
 </html>
+
