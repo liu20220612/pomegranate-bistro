@@ -1,78 +1,82 @@
 import { Server } from 'socket.io';
 
-// 存储连接的客户端
+// 简单的内存存储
 const connectedClients = new Map();
 
 export default function handler(req, res) {
-  if (!res.socket.server.io) {
-    console.log('初始化Socket.io服务器');
-    
-    const io = new Server(res.socket.server, {
-      cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-      }
-    });
-    
-    res.socket.server.io = io;
-
-    io.on('connection', (socket) => {
-      console.log('客户端连接:', socket.id);
-      
-      // 客户端注册
-      socket.on('register', (data) => {
-        connectedClients.set(socket.id, {
-          deviceId: data.deviceId,
-          socketId: socket.id,
-          connectedAt: new Date()
-        });
-        
-        console.log(`设备注册: ${data.deviceId}`);
-        
-        // 通知其他客户端有新设备连接
-        socket.broadcast.emit('device_connected', {
-          deviceId: data.deviceId,
-          timestamp: new Date().toISOString()
-        });
-      });
-
-      // 处理菜单更新
-      socket.on('menu_update', (data) => {
-        console.log(`收到菜单更新 from ${data.deviceId}`);
-        
-        // 广播给其他所有客户端（除了发送者）
-        socket.broadcast.emit('menu_update', {
-          ...data,
-          timestamp: new Date().toISOString()
-        });
-      });
-
-      // 处理同步请求
-      socket.on('sync_request', (data) => {
-        console.log(`同步请求 from ${data.deviceId}`);
-        
-        // 通知其他设备发送当前状态
-        socket.broadcast.emit('sync_request', {
-          requestingDevice: data.deviceId,
-          timestamp: new Date().toISOString()
-        });
-      });
-
-      // 处理断开连接
-      socket.on('disconnect', () => {
-        const clientInfo = connectedClients.get(socket.id);
-        if (clientInfo) {
-          console.log(`客户端断开: ${clientInfo.deviceId}`);
-          connectedClients.delete(socket.id);
-        }
-        
-        socket.broadcast.emit('device_disconnected', {
-          deviceId: clientInfo?.deviceId,
-          timestamp: new Date().toISOString()
-        });
-      });
-    });
-  }
+  console.log('🔧 API请求收到:', req.method, req.url);
   
-  res.end();
+  // 设置响应头
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // 处理预检请求
+  if (req.method === 'OPTIONS') {
+    console.log('处理OPTIONS预检请求');
+    res.status(200).end();
+    return;
+  }
+
+  // 初始化Socket.io（只在第一次请求时）
+  if (!res.socket.server.io) {
+    console.log('🚀 首次请求，初始化Socket.io...');
+    
+    try {
+      const io = new Server(res.socket.server, {
+        path: '/api/socket.io',
+        cors: {
+          origin: "*",
+          methods: ["GET", "POST"]
+        }
+      });
+
+      res.socket.server.io = io;
+
+      io.on('connection', (socket) => {
+        console.log('✅ 客户端连接成功:', socket.id);
+        
+        // 发送欢迎消息
+        socket.emit('welcome', { 
+          message: '连接成功',
+          serverTime: new Date().toISOString()
+        });
+
+        socket.on('register', (data) => {
+          console.log(`📱 设备注册: ${data.deviceId}`);
+          connectedClients.set(socket.id, data.deviceId);
+        });
+
+        socket.on('menu_update', (data) => {
+          console.log(`📝 菜单更新: ${data.deviceId}`);
+          socket.broadcast.emit('menu_update', data);
+        });
+
+        socket.on('disconnect', () => {
+          console.log(`❌ 客户端断开: ${socket.id}`);
+          connectedClients.delete(socket.id);
+        });
+      });
+
+      console.log('✅ Socket.io服务器初始化完成');
+
+    } catch (error) {
+      console.error('❌ Socket.io初始化失败:', error);
+      return res.status(500).json({ 
+        error: '服务器初始化失败',
+        details: error.message 
+      });
+    }
+  }
+
+  // 返回API状态信息
+  console.log('📊 返回API状态信息');
+  res.status(200).json({ 
+    status: 'success',
+    message: 'WebSocket服务器运行中',
+    timestamp: new Date().toISOString(),
+    connectedClients: connectedClients.size,
+    path: '/api/socket.io'
+  });
 }
