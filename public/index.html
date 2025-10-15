@@ -1166,11 +1166,12 @@ class SyncManager {
     connect() {
         try {
             // 这里先用一个占位URL，部署到Vercel后再修改为真实域名
-            const serverUrl = 'https://shiliu0612.vercel.app';
+            const serverUrl = 'https://shiliu220612.vercel.app';
             
             console.log('连接到服务器:', serverUrl);
             
             this.socket = io(serverUrl, {
+                path: '/api/socket',
                 transports: ['websocket', 'polling']
             });
             
@@ -1459,4 +1460,5 @@ init = function() {
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
+
 </html>
