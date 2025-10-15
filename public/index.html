@@ -878,8 +878,12 @@
             // 绑定事件监听器
             bindEvents();
             
-            // 加载保存的菜单（如果有）
+            // 加载保存的菜单
             loadSavedMenu();
+
+            // 初始化同步管理器 - 使用新的SimpleSyncManager
+    syncManager = new SimpleSyncManager();
+    syncManager.connect();
         }
 
         // 渲染菜品列表
@@ -1138,21 +1142,18 @@
         // ==================== 跨设备同步功能 ====================
 
 // 同步管理器
-let syncManager;
 
-class SyncManager {
+//  使用长轮询
+class SimpleSyncManager {
     constructor() {
         this.deviceId = this.generateDeviceId();
         this.isConnected = false;
-        this.socket = null;
-        this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 5;
+        this.lastSyncTime = 0;
+        this.syncInterval = null;
         
-        // 显示设备ID
         document.getElementById('deviceIdDisplay').textContent = this.deviceId.substring(0, 8) + '...';
     }
     
-    // 生成设备ID
     generateDeviceId() {
         let deviceId = localStorage.getItem('pomegranateDeviceId');
         if (!deviceId) {
@@ -1162,120 +1163,99 @@ class SyncManager {
         return deviceId;
     }
     
-    // 连接到WebSocket服务器
+    // 开始同步
     connect() {
-        try {
-            // 这里先用一个占位URL，部署到Vercel后再修改为真实域名
-            const serverUrl = 'https://shiliu220612.vercel.app';
-            console.log('🔗 连接尝试:', serverUrl);
-            
-            this.socket = io(serverUrl, {
-                path: '/api/socket.io',
-                transports: ['polling', 'websocket'],
-                timeout: 10000
-            });
-            
-            this.socket.on('connect', () => {
-                console.log('✅ WebSocket连接成功!');
-                this.isConnected = true;
-                this.updateStatus(true);
-                
-                // 发送设备注册信息
-                this.socket.emit('register', {
-                    deviceId: this.deviceId,
-                    timestamp: Date.now()
-                });
-            });
-           this.socket.on('welcome', (data) => {
-            console.log('👋 服务器欢迎消息:', data);
-        });
+        console.log('🔄 启动长轮询同步');
+        this.isConnected = true;
+        this.updateStatus(true);
         
-        this.socket.on('menu_update', (data) => {
-            console.log('📝 收到远程菜单更新:', data);
-            this.handleMenuUpdate(data);
-        });
+        // 每10秒同步一次
+        this.syncInterval = setInterval(() => {
+            this.syncData();
+        }, 10000);
         
-        this.socket.on('connect_error', (error) => {
-            console.error('❌ 连接失败:', error.message);
-            this.isConnected = false;
-            this.updateStatus(false);
-        });
-        
-        this.socket.on('disconnect', (reason) => {
-            console.log('🔌 连接断开:', reason);
-            this.isConnected = false;
-            this.updateStatus(false);
-        });
-        
-    } catch (error) {
-        console.error('💥 连接异常:', error);
-        this.updateStatus(false);
+        // 立即同步一次
+        this.syncData();
     }
-}
     
-    // 处理菜单更新
-    handleMenuUpdate(data) {
-        if (data.deviceId !== this.deviceId) {
-            console.log('收到远程菜单更新:', data);
+    // 同步数据
+    async syncData() {
+        try {
+            const response = await fetch('/api/sync', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    deviceId: this.deviceId,
+                    menu: weekMenu,
+                    timestamp: Date.now(),
+                    action: 'sync'
+                })
+            });
             
-            // 合并远程菜单数据
-            Object.assign(weekMenu, data.menu);
+            const data = await response.json();
             
+            if (data.status === 'success' && data.otherMenus) {
+                // 处理其他设备的菜单数据
+                this.processRemoteData(data.otherMenus);
+            }
+            
+        } catch (error) {
+            console.error('同步失败:', error);
+            this.isConnected = false;
+            this.updateStatus(false);
+        }
+    }
+    
+    // 处理远程数据
+    processRemoteData(otherMenus) {
+        let hasUpdate = false;
+        
+        // 合并其他设备的菜单数据
+        for (const [deviceId, remoteMenu] of Object.entries(otherMenus)) {
+            if (deviceId !== this.deviceId) {
+                for (const day in remoteMenu) {
+                    if (remoteMenu[day].length > 0) {
+                        // 简单的合并逻辑：如果当天没有菜品，就用远程的
+                        if (weekMenu[day].length === 0) {
+                            weekMenu[day] = [...remoteMenu[day]];
+                            hasUpdate = true;
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (hasUpdate) {
             // 更新UI
             for (const day in weekMenu) {
                 updateDayMenu(day);
             }
             
-            // 保存到本地存储
+            // 保存到本地
             localStorage.setItem('pomegranateBistroMenu', JSON.stringify(weekMenu));
             
-            // 显示同步通知
-            this.showSyncNotification('菜单已从其他设备同步更新');
+            this.showSyncNotification('菜单已从其他设备同步');
         }
-    }
-    
-    // 处理同步请求
-    handleSyncRequest(data) {
-        if (data.requestingDevice !== this.deviceId) {
-            this.sendMenuUpdate();
-        }
-    }
-    
-    // 处理设备连接
-    handleDeviceConnected(data) {
-        console.log('新设备连接:', data.deviceId);
-        this.showSyncNotification(`设备 ${data.deviceId.substring(0, 8)}... 已连接`);
-    }
-    
-    // 处理设备断开
-    handleDeviceDisconnected(data) {
-        console.log('设备断开:', data.deviceId);
-        this.showSyncNotification(`设备 ${data.deviceId?.substring(0, 8)}... 已断开`);
     }
     
     // 发送菜单更新
     sendMenuUpdate() {
-        if (this.isConnected && this.socket) {
-            this.socket.emit('menu_update', {
-                deviceId: this.deviceId,
-                menu: weekMenu,
-                timestamp: Date.now()
-            });
-        }
+        // 直接触发同步
+        this.syncData();
     }
     
-    // 尝试重新连接
-    attemptReconnect() {
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
-            this.reconnectAttempts++;
-            const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-            
-            console.log(`尝试重新连接... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-            setTimeout(() => this.connect(), delay);
+    // 断开连接
+    disconnect() {
+        if (this.syncInterval) {
+            clearInterval(this.syncInterval);
+            this.syncInterval = null;
         }
+        this.isConnected = false;
+        this.updateStatus(false);
     }
     
-    // 更新连接状态显示
     updateStatus(connected) {
         const indicator = document.getElementById('syncIndicator');
         const statusText = document.getElementById('syncStatusText');
@@ -1289,7 +1269,6 @@ class SyncManager {
         }
     }
     
-    // 显示同步通知
     showSyncNotification(message) {
         const notification = document.createElement('div');
         notification.style.cssText = `
@@ -1307,34 +1286,28 @@ class SyncManager {
             animation: slideIn 0.3s ease;
         `;
         notification.textContent = message;
-        
         document.body.appendChild(notification);
         
         setTimeout(() => {
             if (notification.parentNode) {
-                notification.style.animation = 'slideOut 0.3s ease';
-                setTimeout(() => {
-                    if (notification.parentNode) {
-                        notification.parentNode.removeChild(notification);
-                    }
-                }, 300);
+                notification.parentNode.removeChild(notification);
             }
         }, 3000);
     }
 }
+           
 
 // 修改保存菜单函数，添加同步功能
-const originalSaveMenu = saveMenu;
-saveMenu = function() {
+function saveMenu() {
     localStorage.setItem('pomegranateBistroMenu', JSON.stringify(weekMenu));
     
-    // 同步到其他设备
+    // 同步到其他设备 - 使用新的方法
     if (syncManager && syncManager.isConnected) {
         syncManager.sendMenuUpdate();
     }
     
     alert('菜单已保存并同步！');
-};
+}
 
 // 修改添加菜品到菜单函数，添加同步功能
 const originalAddDishToMenu = addDishToMenu;
@@ -1445,4 +1418,5 @@ init = function() {
 </body>
 
 </html>
+
 
