@@ -2,6 +2,7 @@
   "name": "pomegranate-bistro",
   "version": "1.0.0",
   "description": "石榴餐吧 - 跨设备菜单同步",
+  "type": "module",
   "scripts": {
     "dev": "node server.js"
   },
@@ -11,4 +12,5 @@
   "engines": {
     "node": "22.x"
   }
+
 }
