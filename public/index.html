@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <title>📋石榴餐吧</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Comic Sans MS', 'Marker Felt', 'Arial Rounded MT Bold', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #ffdde1 0%, #ee9ca7 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 20px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+            border: 3px dashed #ff9aa2;
+        }
+        
+        h1 {
+            color: #ff6b6b;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 0px #ffd3d6;
+        }
+        
+        .description {
+            color: #ff9aa2;
+            font-size: 1.2em;
+        }
+        
+        .menu-library {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .category {
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+            border: 2px solid #ffd3d6;
+            transition: transform 0.3s ease;
+        }
+        
+        .category:hover {
+            transform: translateY(-5px);
+        }
+        
+        .category h2 {
+            color: #ff9aa2;
+            border-bottom: 3px dotted #ff9aa2;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            font-size: 1.5em;
+        }
+        
+        .category h2 i {
+            margin-right: 10px;
+        }
+        
+        .dishes {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .dish-item {
+            padding: 12px 15px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .dish-item:before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            transition: left 0.5s;
+        }
+        
+        .dish-item:hover:before {
+            left: 100%;
+        }
+        
+        .dish-item:hover {
+            background: #ffe6e9;
+            transform: translateY(-3px);
+            border-color: #ff9aa2;
+            box-shadow: 0 4px 8px rgba(255, 154, 162, 0.3);
+        }
+        
+        .dish-item.selected {
+            background: #ff9aa2;
+            color: white;
+        }
+        
+        .dish-name {
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+        
+        .dish-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .action-btn {
+            background: #ffd3d6;
+            border: none;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: all 0.2s;
+        }
+        
+        .action-btn:hover {
+            background: #ff9aa2;
+            color: white;
+            transform: scale(1.1);
+        }
+        
+        .selection-area {
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            border: 3px dashed #ff9aa2;
+        }
+        
+        .selection-area h2 {
+            color: #ff6b6b;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 1.8em;
+            text-shadow: 1px 1px 0px #ffd3d6;
+        }
+        
+        .week-plan {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .day-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 15px;
+            min-height: 150px;
+            border: 2px solid #ffd3d6;
+            transition: transform 0.3s ease;
+        }
+        
+        .day-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(255, 154, 162, 0.3);
+        }
+        
+        .day-header {
+            font-weight: bold;
+            color: #ff6b6b;
+            margin-bottom: 10px;
+            text-align: center;
+            border-bottom: 2px dotted #ff9aa2;
+            padding-bottom: 5px;
+            font-size: 1.2em;
+        }
+        
+        .selected-dishes {
+            min-height: 100px;
+        }
+        
+        .selected-dish {
+            background: #ffe6e9;
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid #ff9aa2;
+        }
+        
+        .remove-dish {
+            background: #ff9aa2;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.7em;
+        }
+        
+        .buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        #generate-btn {
+            background: #ff9aa2;
+            color: white;
+        }
+        
+        #generate-btn:hover {
+            background: #ff6b6b;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(255, 107, 107, 0.3);
+        }
+        
+        #reset-btn {
+            background: #ffd3d6;
+            color: #ff6b6b;
+        }
+        
+        #reset-btn:hover {
+            background: #ff9aa2;
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(255, 154, 162, 0.3);
+        }
+        
+        #save-btn {
+            background: #b5ead7;
+            color: #2d8f5c;
+        }
+        
+        #save-btn:hover {
+            background: #8cd9b3;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(140, 217, 179, 0.3);
+        }
+        
+        /* 弹窗样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            border: 4px solid #ff9aa2;
+            position: relative;
+        }
+        
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #ff9aa2;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.2em;
+        }
+        
+        .dish-detail-title {
+            color: #ff6b6b;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 1.8em;
+        }
+        
+        .detail-section {
+            margin-bottom: 20px;
+        }
+        
+        .detail-section h3 {
+            color: #ff9aa2;
+            margin-bottom: 10px;
+            border-bottom: 2px dotted #ffd3d6;
+            padding-bottom: 5px;
+        }
+        
+        .ingredients-list, .steps-list {
+            padding-left: 20px;
+        }
+        
+        .ingredients-list li, .steps-list li {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        /* 日期选择器样式 */
+        .day-selector {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .day-selector h3 {
+            color: #ff9aa2;
+            margin-bottom: 10px;
+        }
+        
+        .day-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .day-btn {
+            padding: 8px 15px;
+            background: #ffd3d6;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+            color: #ff6b6b;
+        }
+        
+        .day-btn:hover {
+            background: #ff9aa2;
+            color: white;
+        }
+        
+        .day-btn.selected {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .day-btn.disabled {
+            background: #e0e0e0;
+            color: #a0a0a0;
+            cursor: not-allowed;
+        }
+        .sync-status {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 10px 15px;
+    border-radius: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 1000;
+    border: 2px solid #ff9aa2;
+}
+
+.sync-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ff6b6b;
+    animation: pulse 1.5s infinite;
+}
+
+.sync-indicator.connected {
+    background: #4bb543;
+}
+
+.device-id {
+    font-size: 0.8em;
+    color: #666;
+    margin-top: 5px;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* 同步通知动画 */
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+}
+        
+        @media (max-width: 768px) {
+            .menu-library {
+                grid-template-columns: 1fr;
+            }
+            
+            .week-plan {
+                grid-template-columns: 1fr;
+            }
+            
+            .buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            button {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 同步状态指示器 -->
+<div class="sync-status">
+    <div class="sync-indicator" id="syncIndicator"></div>
+    <div>
+        <span id="syncStatusText">同步中...</span>
+        <div class="device-id">设备ID: <span id="deviceIdDisplay">生成中...</span></div>
+    </div>
+</div>
+    <div class="container">
+        <header>
+            <h1>🏠 石榴餐吧 🏠</h1>
+            <p class="descriptbion">选择想吃的菜吧</p>
+        </header>
+        
+        <div class="selection-area">
+            <h2>📅 本周菜单计划</h2>
+            <div class="week-plan">
+                <div class="day-card">
+                    <div class="day-header">星期一</div>
+                    <div class="selected-dishes" id="monday-dishes"></div>
+                </div>
+                <div class="day-card">
+                    <div class="day-header">星期二</div>
+                    <div class="selected-dishes" id="tuesday-dishes"></div>
+                </div>
+                <div class="day-card">
+                    <div class="day-header">星期三</div>
+                    <div class="selected-dishes" id="wednesday-dishes"></div>
+                </div>
+                <div class="day-card">
+                    <div class="day-header">星期四</div>
+                    <div class="selected-dishes" id="thursday-dishes"></div>
+                </div>
+                <div class="day-card">
+                    <div class="day-header">星期五</div>
+                    <div class="selected-dishes" id="friday-dishes"></div>
+                </div>
+                <div class="day-card">
+                    <div class="day-header">星期六</div>
+                    <div class="selected-dishes" id="saturday-dishes"></div>
+                </div>
+                <div class="day-card">
+                    <div class="day-header">星期日</div>
+                    <div class="selected-dishes" id="sunday-dishes"></div>
+                </div>
+            </div>
+            
+            <div class="buttons">
+                <button id="generate-btn">🎲 随机生成一周菜单</button>
+                <button id="reset-btn">🔄 清空菜单</button>
+                <button id="save-btn">💾 保存菜单</button>
+            </div>
+        </div>
+        
+        <div class="menu-library">
+            <div class="category">
+                <h2>🍚 主食类</h2>
+                <div class="dishes" id="staple-food">
+                    <!-- 主食类菜品将通过JS动态添加 -->
+                </div>
+            </div>
+            
+            <div class="category">
+                <h2>🍖 家常荤菜</h2>
+                <div class="dishes" id="meat-dishes">
+                    <!-- 荤菜类菜品将通过JS动态添加 -->
+                </div>
+            </div>
+            
+            <div class="category">
+                <h2>🥬 素菜 & 蛋豆制品</h2>
+                <div class="dishes" id="vegetable-dishes">
+                    <!-- 素菜类菜品将通过JS动态添加 -->
+                </div>
+            </div>
+            
+            <div class="category">
+                <h2>🍲 汤羹类</h2>
+                <div class="dishes" id="soup-dishes">
+                    <!-- 汤羹类菜品将通过JS动态添加 -->
+                </div>
+            </div>
+            
+            <div class="category">
+                <h2>🍳 早餐选择</h2>
+                <div class="dishes" id="breakfast-dishes">
+                    <!-- 早餐类菜品将通过JS动态添加 -->
+                </div>
+            </div>
+            
+            <div class="category">
+                <h2>🎉 特色/应急方案</h2>
+                <div class="dishes" id="special-dishes">
+                    <!-- 特色类菜品将通过JS动态添加 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 菜品详情弹窗 -->
+    <div class="modal" id="dish-modal">
+        <div class="modal-content">
+            <button class="close-btn" id="close-modal">×</button>
+            <h2 class="dish-detail-title" id="modal-dish-name"></h2>
+            <div class="detail-section">
+                <h3>📋 所需材料</h3>
+                <ul class="ingredients-list" id="modal-ingredients"></ul>
+            </div>
+            <div class="detail-section">
+                <h3>👩‍🍳 制作步骤</h3>
+                <ol class="steps-list" id="modal-steps"></ol>
+            </div>
+            <div class="day-selector">
+                <h3>📅 选择添加到哪一天</h3>
+                <div class="day-buttons" id="day-selector-buttons">
+                    <!-- 日期选择按钮将通过JS动态添加 -->
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button id="add-to-menu-btn" style="background: #ff9aa2; color: white;">添加到菜单</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 菜品详情数据 - 补充完整所有菜品
+        const dishDetails = {
+            // 主食类
+            "白米饭/杂粮饭": {
+                ingredients: ["大米 200g", "水 适量", "杂粮（可选） 50g"],
+                steps: ["将大米和杂粮淘洗干净", "加入适量水（一般米水比例1:1.2）", "按下电饭煲煮饭键", "等待煮熟后焖5分钟即可"]
+            },
+            "汤面(西红柿鸡蛋面)": {
+                ingredients: ["面条 200g", "西红柿 2个", "鸡蛋 2个", "葱花 适量", "盐 适量", "食用油 1勺"],
+                steps: ["西红柿切块，鸡蛋打散", "热锅冷油，炒熟鸡蛋盛出", "锅中放油，炒西红柿至出汁", "加水煮开，放入面条", "面条快熟时加入炒好的鸡蛋", "加盐调味，撒上葱花"]
+            },
+            "牛肉面": {
+                ingredients: ["面条 200g", "牛肉 150g", "青菜 适量", "姜片 3片", "料酒 1勺", "酱油 1勺", "盐 适量"],
+                steps: ["牛肉切片，用料酒、酱油腌制", "锅中烧水煮面，捞出备用", "另起锅炒香姜片，加入牛肉翻炒", "加水煮开，放入青菜", "将汤和牛肉浇在面上"]
+            },
+            "炒面/拌面": {
+                ingredients: ["面条 200g", "蔬菜（胡萝卜、青菜等）适量", "酱油 2勺", "食用油 2勺", "蒜末 适量"],
+                steps: ["面条煮熟过冷水", "热锅冷油，爆香蒜末", "加入蔬菜翻炒", "放入面条，加酱油翻炒均匀"]
+            },
+            "扬州炒饭": {
+                ingredients: ["米饭 2碗", "鸡蛋 2个", "火腿丁 50g", "青豆 30g", "玉米粒 30g", "盐 适量", "食用油 2勺"],
+                steps: ["鸡蛋打散炒熟盛出", "锅中放油，加入火腿丁、青豆、玉米粒翻炒", "加入米饭炒散", "放入炒好的鸡蛋", "加盐调味翻炒均匀"]
+            },
+            "饺子/馄饨": {
+                ingredients: ["饺子皮/馄饨皮 适量", "肉馅 200g", "蔬菜（白菜、韭菜等）适量", "酱油 1勺", "盐 适量"],
+                steps: ["肉馅和蔬菜混合，加酱油、盐调味", "用皮包成饺子或馄饨", "锅中烧水，水开后放入", "煮至浮起后再煮2-3分钟"]
+            },
+            "包子/馒头": {
+                ingredients: ["面粉 500g", "酵母 5g", "水 250ml", "馅料（包子用）适量"],
+                steps: ["面粉、酵母、水揉成面团", "发酵至两倍大", "揉面排气，分成小剂子", "包入馅料（包子）或直接整形（馒头）", "上锅蒸15-20分钟"]
+            },
+            "意式肉酱面": {
+                ingredients: ["意大利面 200g", "牛肉末 150g", "番茄酱 3勺", "洋葱 半个", "大蒜 2瓣", "盐 适量", "橄榄油 1勺"],
+                steps: ["煮意大利面至al dente", "锅中放橄榄油，炒香洋葱、大蒜", "加入牛肉末炒熟", "放入番茄酱煮5分钟", "将肉酱浇在面上"]
+            },
+            "披萨": {
+                ingredients: ["披萨饼底 1个", "披萨酱 适量", "马苏里拉奶酪 100g", " toppings（火腿、蔬菜等）适量"],
+                steps: ["饼底涂上披萨酱", "撒一层奶酪", "放上喜欢的toppings", "再撒一层奶酪", "烤箱200度烤15-20分钟"]
+            },
+            "手抓饼/卷饼": {
+                ingredients: ["手抓饼皮 2张", "鸡蛋 2个", "生菜 2片", "火腿/培根 2片", "甜面酱 适量"],
+                steps: ["手抓饼煎至两面金黄", "煎鸡蛋和火腿", "饼上涂甜面酱", "放生菜、鸡蛋、火腿", "卷起来即可"]
+            },
+            
+            // 荤菜类
+            "红烧肉": {
+                ingredients: ["五花肉 500g", "生姜 3片", "料酒 2勺", "老抽 1勺", "冰糖 30g", "八角 2个", "桂皮 1小块", "水 适量"],
+                steps: ["五花肉切块焯水", "锅中放少许油，加入冰糖炒糖色", "放入五花肉翻炒上色", "加入料酒、老抽、生姜、八角、桂皮", "加水没过肉，小火炖煮40分钟", "大火收汁即可"]
+            },
+            "可乐鸡翅": {
+                ingredients: ["鸡翅 8个", "可乐 1罐", "生姜 3片", "料酒 1勺", "酱油 2勺"],
+                steps: ["鸡翅两面划刀", "锅中放油煎鸡翅至两面金黄", "加入料酒、酱油、生姜", "倒入可乐没过鸡翅", "大火煮开转小火炖15分钟", "大火收汁"]
+            },
+            "糖醋排骨": {
+                ingredients: ["排骨 500g", "醋 3勺", "糖 2勺", "酱油 2勺", "料酒 1勺", "生姜 3片"],
+                steps: ["排骨焯水", "锅中放油煎排骨", "加入料酒、酱油、糖、醋", "加水没过排骨", "小火炖30分钟", "大火收汁"]
+            },
+            "回锅肉": {
+                ingredients: ["五花肉 300g", "青椒 2个", "蒜苗 2根", "豆瓣酱 1勺", "酱油 1勺", "糖 少许"],
+                steps: ["五花肉煮熟切片", "锅中放油炒肉片至微卷", "加入豆瓣酱炒香", "放入青椒、蒜苗翻炒", "加酱油、糖调味"]
+            },
+            "木须肉": {
+                ingredients: ["猪肉 200g", "鸡蛋 2个", "黑木耳 10g", "黄瓜 1根", "酱油 1勺", "料酒 1勺"],
+                steps: ["猪肉切片用料酒腌制", "鸡蛋炒熟盛出", "锅中放油炒肉片", "加入泡发的黑木耳", "放入黄瓜片和鸡蛋", "加酱油翻炒均匀"]
+            },
+            "红烧鸡块": {
+                ingredients: ["鸡块 500g", "生姜 3片", "料酒 2勺", "酱油 2勺", "糖 1勺", "八角 1个"],
+                steps: ["鸡块焯水", "锅中放油炒香姜片", "加入鸡块翻炒", "放入料酒、酱油、糖、八角", "加水炖20分钟", "收汁即可"]
+            },
+            "土豆烧鸡": {
+                ingredients: ["鸡块 400g", "土豆 2个", "生姜 3片", "料酒 1勺", "酱油 2勺", "盐 适量"],
+                steps: ["鸡块焯水", "土豆切块", "锅中放油炒鸡块", "加入土豆、料酒、酱油", "加水炖15分钟", "加盐调味收汁"]
+            },
+            "辣子鸡": {
+                ingredients: ["鸡块 500g", "干辣椒 适量", "花椒 1勺", "生姜 3片", "料酒 1勺", "酱油 1勺"],
+                steps: ["鸡块用料酒、酱油腌制", "油热炸鸡块至金黄", "锅中留底油炒香干辣椒、花椒", "放入鸡块翻炒均匀"]
+            },
+            "宫保鸡丁": {
+                ingredients: ["鸡胸肉 300g", "花生米 50g", "干辣椒 适量", "酱油 2勺", "醋 1勺", "糖 1勺", "料酒 1勺"],
+                steps: ["鸡胸肉切丁用料酒腌制", "锅中放油炒鸡丁", "加入干辣椒", "放入酱油、糖、醋调味", "最后加入花生米"]
+            },
+            "番茄牛腩": {
+                ingredients: ["牛腩 500g", "番茄 3个", "生姜 3片", "料酒 2勺", "盐 适量"],
+                steps: ["牛腩切块焯水", "番茄去皮切块", "锅中放油炒香姜片", "加入牛腩翻炒", "放入番茄炒出汁", "加水炖1小时", "加盐调味"]
+            },
+            "胡萝卜烧牛肉": {
+                ingredients: ["牛肉 500g", "胡萝卜 2根", "生姜 3片", "料酒 2勺", "酱油 2勺", "盐 适量"],
+                steps: ["牛肉切块焯水", "胡萝卜切滚刀块", "锅中放油炒香姜片", "加入牛肉翻炒", "放入胡萝卜、料酒、酱油", "加水炖40分钟", "加盐调味"]
+            },
+            "清蒸鲈鱼": {
+                ingredients: ["鲈鱼 1条", "生姜 5片", "葱 2根", "料酒 1勺", "蒸鱼豉油 2勺"],
+                steps: ["鲈鱼处理干净，身上划几刀", "盘底放姜片，鱼身上放姜片、葱段", "淋上料酒", "水开后蒸8-10分钟", "淋上蒸鱼豉油"]
+            },
+            "红烧带鱼": {
+                ingredients: ["带鱼 500g", "生姜 3片", "料酒 2勺", "酱油 2勺", "糖 1勺", "醋 1勺"],
+                steps: ["带鱼切段煎至两面金黄", "锅中留底油炒香姜片", "放入带鱼", "加入料酒、酱油、糖、醋", "加水炖10分钟", "收汁即可"]
+            },
+            "油焖大虾": {
+                ingredients: ["大虾 400g", "生姜 3片", "料酒 1勺", "酱油 2勺", "糖 1勺", "葱 1根"],
+                steps: ["大虾剪去须脚", "锅中放油煎虾至变红", "加入料酒、酱油、糖", "加水焖5分钟", "撒上葱花"]
+            },
+            
+            // 素菜类
+            "蒜蓉西兰花": {
+                ingredients: ["西兰花 1颗", "大蒜 5瓣", "盐 适量", "食用油 1勺"],
+                steps: ["西兰花洗净切小朵", "大蒜切末", "锅中烧水，水开后放入西兰花焯水1分钟", "热锅冷油，放入蒜末爆香", "加入西兰花翻炒", "加盐调味即可"]
+            },
+            "清炒菜心": {
+                ingredients: ["菜心 300g", "大蒜 3瓣", "盐 适量", "食用油 1勺"],
+                steps: ["菜心洗净", "大蒜切片", "热锅冷油，爆香蒜片", "加入菜心翻炒", "加盐调味"]
+            },
+            "蚝油生菜": {
+                ingredients: ["生菜 1颗", "蚝油 2勺", "大蒜 2瓣", "食用油 1勺"],
+                steps: ["生菜洗净", "大蒜切末", "锅中烧水，水开后放入生菜焯水30秒", "热锅冷油，爆香蒜末", "加入蚝油和少许水", "淋在生菜上"]
+            },
+            "酸辣土豆丝": {
+                ingredients: ["土豆 2个", "干辣椒 3个", "醋 2勺", "盐 适量", "食用油 1勺"],
+                steps: ["土豆切丝泡水", "干辣椒切段", "热锅冷油，爆香干辣椒", "加入土豆丝翻炒", "加醋、盐调味"]
+            },
+            "番茄炒蛋": {
+                ingredients: ["番茄 2个", "鸡蛋 3个", "糖 1勺", "盐 适量", "食用油 2勺"],
+                steps: ["番茄切块，鸡蛋打散", "热锅冷油炒熟鸡蛋盛出", "锅中放油炒番茄至出汁", "加入鸡蛋翻炒", "加糖、盐调味"]
+            },
+            "红烧茄子": {
+                ingredients: ["茄子 2根", "大蒜 3瓣", "酱油 2勺", "糖 1勺", "食用油 2勺"],
+                steps: ["茄子切滚刀块", "大蒜切末", "锅中放油煎茄子", "加入酱油、糖、少许水", "焖煮5分钟", "撒上蒜末"]
+            },
+            "地三鲜": {
+                ingredients: ["土豆 1个", "茄子 1根", "青椒 1个", "酱油 2勺", "糖 1勺", "食用油 3勺"],
+                steps: ["土豆、茄子、青椒切块", "土豆、茄子分别油炸", "锅中留底油炒青椒", "加入土豆、茄子", "放入酱油、糖调味"]
+            },
+            "麻婆豆腐": {
+                ingredients: ["豆腐 1块", "肉末 50g", "豆瓣酱 1勺", "花椒粉 1勺", "酱油 1勺", "水淀粉 适量"],
+                steps: ["豆腐切块焯水", "锅中放油炒肉末", "加入豆瓣酱炒香", "放入豆腐轻轻翻炒", "加水煮5分钟", "勾芡撒花椒粉"]
+            },
+            "家常豆腐": {
+                ingredients: ["豆腐 1块", "木耳 10g", "青椒 1个", "酱油 2勺", "糖 1勺", "食用油 2勺"],
+                steps: ["豆腐切片煎至两面金黄", "木耳泡发，青椒切片", "锅中放油炒青椒、木耳", "加入豆腐", "放入酱油、糖调味"]
+            },
+            "清炒荷兰豆": {
+                ingredients: ["荷兰豆 200g", "大蒜 2瓣", "盐 适量", "食用油 1勺"],
+                steps: ["荷兰豆去筋", "大蒜切片", "热锅冷油爆香蒜片", "加入荷兰豆翻炒", "加盐调味"]
+            },
+            "蒜蓉空心菜": {
+                ingredients: ["空心菜 300g", "大蒜 4瓣", "盐 适量", "食用油 1勺"],
+                steps: ["空心菜洗净切段", "大蒜切末", "热锅冷油爆香蒜末", "加入空心菜翻炒", "加盐调味"]
+            },
+            
+            // 汤羹类
+            "紫菜蛋花汤": {
+                ingredients: ["紫菜 10g", "鸡蛋 2个", "葱花 适量", "盐 适量", "香油 几滴"],
+                steps: ["紫菜用温水泡软", "鸡蛋打散备用", "锅中烧水，水开后放入紫菜", "慢慢倒入蛋液，形成蛋花", "加盐调味，撒上葱花", "出锅前滴几滴香油"]
+            },
+            "西红柿蛋汤": {
+                ingredients: ["西红柿 2个", "鸡蛋 2个", "葱花 适量", "盐 适量", "香油 几滴"],
+                steps: ["西红柿切块", "鸡蛋打散", "锅中放油炒西红柿", "加水煮开", "慢慢倒入蛋液", "加盐调味，撒葱花滴香油"]
+            },
+            "豆腐菌菇汤": {
+                ingredients: ["豆腐 1块", "菌菇（金针菇、香菇等）适量", "葱花 适量", "盐 适量", "香油 几滴"],
+                steps: ["豆腐切块，菌菇洗净", "锅中烧水，放入菌菇煮5分钟", "加入豆腐煮3分钟", "加盐调味，撒葱花滴香油"]
+            },
+            "冬瓜虾皮汤": {
+                ingredients: ["冬瓜 300g", "虾皮 10g", "葱花 适量", "盐 适量", "香油 几滴"],
+                steps: ["冬瓜去皮切片", "锅中烧水，放入冬瓜煮10分钟", "加入虾皮煮2分钟", "加盐调味，撒葱花滴香油"]
+            },
+            "排骨玉米汤": {
+                ingredients: ["排骨 300g", "玉米 1根", "姜片 3片", "盐 适量"],
+                steps: ["排骨焯水", "玉米切段", "锅中放水，加入排骨、玉米、姜片", "大火煮开转小火炖1小时", "加盐调味"]
+            },
+            "鸡汤/老鸭煲": {
+                ingredients: ["鸡/鸭 半只", "姜片 5片", "料酒 2勺", "盐 适量"],
+                steps: ["鸡/鸭焯水", "锅中放水，加入鸡/鸭、姜片、料酒", "大火煮开转小火炖2小时", "加盐调味"]
+            },
+            
+            // 早餐类
+            "粥+酱菜/肉松": {
+                ingredients: ["大米 100g", "水 适量", "酱菜或肉松 适量"],
+                steps: ["大米淘洗干净", "加入适量水（约1:8的比例）", "大火煮开后转小火慢熬30分钟", "搭配酱菜或肉松食用"]
+            },
+            "豆浆+包子": {
+                ingredients: ["豆浆粉或黄豆 适量", "包子 2个", "水 适量"],
+                steps: ["按说明冲泡豆浆或自制豆浆", "包子蒸热", "搭配食用"]
+            },
+            "牛奶燕麦": {
+                ingredients: ["牛奶 250ml", "燕麦片 50g", "水果/坚果 适量"],
+                steps: ["牛奶加热", "加入燕麦片煮2分钟", "撒上喜欢的水果或坚果"]
+            },
+            "馄饨/饺子": {
+                ingredients: ["馄饨/饺子 适量", "紫菜 少许", "虾皮 少许", "酱油 1勺", "香油 几滴"],
+                steps: ["锅中烧水煮馄饨/饺子", "碗中放入紫菜、虾皮、酱油、香油", "舀入煮好的馄饨/饺子和汤"]
+            },
+            "面包/吐司": {
+                ingredients: ["面包/吐司 2片", "果酱/黄油 适量", "牛奶 1杯"],
+                steps: ["面包/吐司烤至微黄", "涂上果酱或黄油", "搭配牛奶食用"]
+            },
+            "煎蛋/炒蛋": {
+                ingredients: ["鸡蛋 2个", "盐 适量", "食用油 1勺", "面包 2片"],
+                steps: ["鸡蛋打散加盐（炒蛋）或直接打入锅中（煎蛋）", "热锅冷油，煎/炒至喜欢的熟度", "搭配面包食用"]
+            },
+            
+            // 特色/应急方案
+            "火锅": {
+                ingredients: ["火锅底料 1包", "各种肉类（牛肉、羊肉等）适量", "蔬菜（白菜、菠菜等）适量", "豆腐/豆皮 适量", "丸子 适量"],
+                steps: ["锅中加水，放入火锅底料煮开", "准备喜欢的食材", "边煮边吃"]
+            },
+            "烧烤": {
+                ingredients: ["各种肉类（鸡翅、肉串等）适量", "蔬菜（玉米、茄子等）适量", "烧烤酱 适量", "孜然、辣椒粉 适量"],
+                steps: ["食材腌制或切好", "炭火或电烤炉预热", "烤至熟透，撒上调料"]
+            },
+            "速冻食品": {
+                ingredients: ["速冻饺子/包子/披萨等 适量"],
+                steps: ["按包装说明加热食用"]
+            },
+            "外卖": {
+                ingredients: ["手机 1部", "外卖APP 1个"],
+                steps: ["打开外卖APP", "选择喜欢的餐厅和菜品", "下单等待配送"]
+            },
+            "方便面+鸡蛋/蔬菜": {
+                ingredients: ["方便面 1包", "鸡蛋 1个", "蔬菜 适量"],
+                steps: ["锅中烧水", "加入蔬菜和调料包", "水开后放入面饼和鸡蛋", "煮3分钟即可"]
+            }
+        };
+
+        // 菜品分类数据
+        const dishCategories = {
+            "staple-food": [
+                "白米饭/杂粮饭", "汤面(西红柿鸡蛋面)", "牛肉面", "炒面/拌面", 
+                "扬州炒饭", "饺子/馄饨", "包子/馒头", "意式肉酱面", "披萨", "手抓饼/卷饼"
+            ],
+            "meat-dishes": [
+                "红烧肉", "可乐鸡翅", "糖醋排骨", "回锅肉", "木须肉", 
+                "红烧鸡块", "土豆烧鸡", "辣子鸡", "宫保鸡丁", "番茄牛腩", 
+                "胡萝卜烧牛肉", "清蒸鲈鱼", "红烧带鱼", "油焖大虾"
+            ],
+            "vegetable-dishes": [
+                "蒜蓉西兰花", "清炒菜心", "蚝油生菜", "酸辣土豆丝", 
+                "番茄炒蛋", "红烧茄子", "地三鲜", "麻婆豆腐", 
+                "家常豆腐", "清炒荷兰豆", "蒜蓉空心菜"
+            ],
+            "soup-dishes": [
+                "紫菜蛋花汤", "西红柿蛋汤", "豆腐菌菇汤", 
+                "冬瓜虾皮汤", "排骨玉米汤", "鸡汤/老鸭煲"
+            ],
+            "breakfast-dishes": [
+                "粥+酱菜/肉松", "豆浆+包子", "牛奶燕麦", 
+                "馄饨/饺子", "面包/吐司", "煎蛋/炒蛋"
+            ],
+            "special-dishes": [
+                "火锅", "烧烤", "速冻食品", 
+                "外卖", "方便面+鸡蛋/蔬菜", "剩菜剩饭"
+            ]
+        };
+
+        // 当前选中的菜品和日期
+        let selectedDish = null;
+        let selectedDay = null;
+        
+        // 周菜单数据
+        const weekMenu = {
+            monday: [],
+            tuesday: [],
+            wednesday: [],
+            thursday: [],
+            friday: [],
+            saturday: [],
+            sunday: []
+        };
+
+        // 初始化函数
+        function init() {
+            // 渲染菜品列表
+            renderDishList();
+            
+            // 渲染日期选择按钮
+            renderDayButtons();
+            
+            // 绑定事件监听器
+            bindEvents();
+            
+            // 加载保存的菜单（如果有）
+            loadSavedMenu();
+        }
+
+        // 渲染菜品列表
+        function renderDishList() {
+            for (const categoryId in dishCategories) {
+                const categoryElement = document.getElementById(categoryId);
+                categoryElement.innerHTML = '';
+                
+                dishCategories[categoryId].forEach(dishName => {
+                    const dishItem = document.createElement('div');
+                    dishItem.className = 'dish-item';
+                    dishItem.innerHTML = `
+                        <span class="dish-name">${dishName}</span>
+                        <div class="dish-actions">
+                            <button class="action-btn view-dish" title="查看详情">👁️</button>
+                            <button class="action-btn add-dish" title="添加到菜单">➕</button>
+                        </div>
+                    `;
+                    categoryElement.appendChild(dishItem);
+                });
+            }
+        }
+
+        // 渲染日期选择按钮
+        function renderDayButtons() {
+            const dayButtonsContainer = document.getElementById('day-selector-buttons');
+            const days = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
+            
+            dayButtonsContainer.innerHTML = '';
+            
+            days.forEach(day => {
+                const button = document.createElement('button');
+                button.className = 'day-btn';
+                button.textContent = day;
+                button.dataset.day = day;
+                dayButtonsContainer.appendChild(button);
+            });
+        }
+
+        // 绑定事件监听器
+        function bindEvents() {
+            // 菜品查看和添加按钮
+            document.querySelectorAll('.view-dish').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const dishName = this.closest('.dish-item').querySelector('.dish-name').textContent;
+                    showDishModal(dishName);
+                });
+            });
+            
+            document.querySelectorAll('.add-dish').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const dishName = this.closest('.dish-item').querySelector('.dish-name').textContent;
+                    showDishModal(dishName);
+                });
+            });
+            
+            // 日期选择按钮
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('day-btn')) {
+                    document.querySelectorAll('.day-btn').forEach(btn => {
+                        btn.classList.remove('selected');
+                    });
+                    e.target.classList.add('selected');
+                    selectedDay = e.target.dataset.day;
+                }
+            });
+            
+            // 添加到菜单按钮
+            document.getElementById('add-to-menu-btn').addEventListener('click', addDishToMenu);
+            
+            // 关闭弹窗按钮
+            document.getElementById('close-modal').addEventListener('click', closeModal);
+            
+            // 弹窗外部点击关闭
+            document.getElementById('dish-modal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeModal();
+                }
+            });
+            
+            // 功能按钮
+            document.getElementById('generate-btn').addEventListener('click', generateRandomMenu);
+            document.getElementById('reset-btn').addEventListener('click', resetMenu);
+            document.getElementById('save-btn').addEventListener('click', saveMenu);
+        }
+
+        // 显示菜品详情弹窗
+        function showDishModal(dishName) {
+            selectedDish = dishName;
+            
+            document.getElementById('modal-dish-name').textContent = dishName;
+            
+            // 填充食材列表
+            const ingredientsList = document.getElementById('modal-ingredients');
+            ingredientsList.innerHTML = '';
+            dishDetails[dishName].ingredients.forEach(ingredient => {
+                const li = document.createElement('li');
+                li.textContent = ingredient;
+                ingredientsList.appendChild(li);
+            });
+            
+            // 填充步骤列表
+            const stepsList = document.getElementById('modal-steps');
+            stepsList.innerHTML = '';
+            dishDetails[dishName].steps.forEach(step => {
+                const li = document.createElement('li');
+                li.textContent = step;
+                stepsList.appendChild(li);
+            });
+            
+            // 显示弹窗
+            document.getElementById('dish-modal').style.display = 'flex';
+        }
+
+        // 关闭弹窗
+        function closeModal() {
+            document.getElementById('dish-modal').style.display = 'none';
+            selectedDay = null;
+            document.querySelectorAll('.day-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+        }
+
+        // 添加菜品到菜单
+        function addDishToMenu() {
+            if (!selectedDish || !selectedDay) {
+                alert('请先选择菜品和日期！');
+                return;
+            }
+            
+            const dayKey = getDayKey(selectedDay);
+            if (weekMenu[dayKey].includes(selectedDish)) {
+                alert('该菜品已存在于当天的菜单中！');
+                return;
+            }
+            
+            weekMenu[dayKey].push(selectedDish);
+            updateDayMenu(dayKey);
+            closeModal();
+        }
+
+        // 获取日期对应的键名
+        function getDayKey(dayName) {
+            const dayMap = {
+                '星期一': 'monday',
+                '星期二': 'tuesday',
+                '星期三': 'wednesday',
+                '星期四': 'thursday',
+                '星期五': 'friday',
+                '星期六': 'saturday',
+                '星期日': 'sunday'
+            };
+            return dayMap[dayName];
+        }
+
+        // 更新某一天的菜单显示
+        function updateDayMenu(dayKey) {
+            const dayElement = document.getElementById(`${dayKey}-dishes`);
+            dayElement.innerHTML = '';
+            
+            weekMenu[dayKey].forEach(dish => {
+                const dishElement = document.createElement('div');
+                dishElement.className = 'selected-dish';
+                dishElement.innerHTML = `
+                    <span>${dish}</span>
+                    <button class="remove-dish" data-day="${dayKey}" data-dish="${dish}">×</button>
+                `;
+                dayElement.appendChild(dishElement);
+            });
+            
+            // 绑定删除按钮事件
+            document.querySelectorAll('.remove-dish').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const dayKey = this.dataset.day;
+                    const dishName = this.dataset.dish;
+                    removeDishFromMenu(dayKey, dishName);
+                });
+            });
+        }
+
+        // 从菜单中移除菜品
+        function removeDishFromMenu(dayKey, dishName) {
+            weekMenu[dayKey] = weekMenu[dayKey].filter(dish => dish !== dishName);
+            updateDayMenu(dayKey);
+        }
+
+        // 随机生成一周菜单
+        function generateRandomMenu() {
+            if (confirm('这将替换当前菜单，确定要继续吗？')) {
+                // 清空当前菜单
+                for (const day in weekMenu) {
+                    weekMenu[day] = [];
+                }
+                
+                // 为每一天随机选择菜品
+                const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+                const categoryKeys = Object.keys(dishCategories);
+                
+                days.forEach(day => {
+                    // 每天选择2-3个菜品（从不同类别）
+                    const numDishes = Math.floor(Math.random() * 2) + 2; // 2-3个菜品
+                    const selectedCategories = [];
+                    
+                    for (let i = 0; i < numDishes; i++) {
+                        let categoryKey;
+                        do {
+                            categoryKey = categoryKeys[Math.floor(Math.random() * categoryKeys.length)];
+                        } while (selectedCategories.includes(categoryKey));
+                        
+                        selectedCategories.push(categoryKey);
+                        
+                        const dishesInCategory = dishCategories[categoryKey];
+                        const randomDish = dishesInCategory[Math.floor(Math.random() * dishesInCategory.length)];
+                        
+                        if (!weekMenu[day].includes(randomDish)) {
+                            weekMenu[day].push(randomDish);
+                        }
+                    }
+                });
+                
+                // 更新显示
+                for (const day in weekMenu) {
+                    updateDayMenu(day);
+                }
+            }
+        }
+
+        // 清空菜单
+        function resetMenu() {
+            if (confirm('确定要清空整个菜单吗？')) {
+                for (const day in weekMenu) {
+                    weekMenu[day] = [];
+                    updateDayMenu(day);
+                }
+            }
+        }
+
+        // 保存菜单到本地存储
+        function saveMenu() {
+            localStorage.setItem('pomegranateBistroMenu', JSON.stringify(weekMenu));
+            alert('菜单已保存！');
+        }
+
+        // 从本地存储加载菜单
+        function loadSavedMenu() {
+            const savedMenu = localStorage.getItem('pomegranateBistroMenu');
+            if (savedMenu) {
+                Object.assign(weekMenu, JSON.parse(savedMenu));
+                
+                // 更新显示
+                for (const day in weekMenu) {
+                    updateDayMenu(day);
+                }
+            }
+        }
+        // ==================== 跨设备同步功能 ====================
+
+// 同步管理器
+let syncManager;
+
+class SyncManager {
+    constructor() {
+        this.deviceId = this.generateDeviceId();
+        this.isConnected = false;
+        this.socket = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 5;
+        
+        // 显示设备ID
+        document.getElementById('deviceIdDisplay').textContent = this.deviceId.substring(0, 8) + '...';
+    }
+    
+    // 生成设备ID
+    generateDeviceId() {
+        let deviceId = localStorage.getItem('pomegranateDeviceId');
+        if (!deviceId) {
+            deviceId = 'device-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('pomegranateDeviceId', deviceId);
+        }
+        return deviceId;
+    }
+    
+    // 连接到WebSocket服务器
+    connect() {
+        try {
+            // 这里先用一个占位URL，部署到Vercel后再修改为真实域名
+            const serverUrl = 'https://shiliu220612.vercel.app';
+            console.log('🔗 连接尝试:', serverUrl);
+            
+            this.socket = io(serverUrl, {
+                path: '/api/socket.io',
+                transports: ['polling', 'websocket'],
+                timeout: 10000
+            });
+            
+            this.socket.on('connect', () => {
+                console.log('✅ WebSocket连接成功!');
+                this.isConnected = true;
+                this.updateStatus(true);
+                
+                // 发送设备注册信息
+                this.socket.emit('register', {
+                    deviceId: this.deviceId,
+                    timestamp: Date.now()
+                });
+            });
+           this.socket.on('welcome', (data) => {
+            console.log('👋 服务器欢迎消息:', data);
+        });
+        
+        this.socket.on('menu_update', (data) => {
+            console.log('📝 收到远程菜单更新:', data);
+            this.handleMenuUpdate(data);
+        });
+        
+        this.socket.on('connect_error', (error) => {
+            console.error('❌ 连接失败:', error.message);
+            this.isConnected = false;
+            this.updateStatus(false);
+        });
+        
+        this.socket.on('disconnect', (reason) => {
+            console.log('🔌 连接断开:', reason);
+            this.isConnected = false;
+            this.updateStatus(false);
+        });
+        
+    } catch (error) {
+        console.error('💥 连接异常:', error);
+        this.updateStatus(false);
+    }
+}
+    
+    // 处理菜单更新
+    handleMenuUpdate(data) {
+        if (data.deviceId !== this.deviceId) {
+            console.log('收到远程菜单更新:', data);
+            
+            // 合并远程菜单数据
+            Object.assign(weekMenu, data.menu);
+            
+            // 更新UI
+            for (const day in weekMenu) {
+                updateDayMenu(day);
+            }
+            
+            // 保存到本地存储
+            localStorage.setItem('pomegranateBistroMenu', JSON.stringify(weekMenu));
+            
+            // 显示同步通知
+            this.showSyncNotification('菜单已从其他设备同步更新');
+        }
+    }
+    
+    // 处理同步请求
+    handleSyncRequest(data) {
+        if (data.requestingDevice !== this.deviceId) {
+            this.sendMenuUpdate();
+        }
+    }
+    
+    // 处理设备连接
+    handleDeviceConnected(data) {
+        console.log('新设备连接:', data.deviceId);
+        this.showSyncNotification(`设备 ${data.deviceId.substring(0, 8)}... 已连接`);
+    }
+    
+    // 处理设备断开
+    handleDeviceDisconnected(data) {
+        console.log('设备断开:', data.deviceId);
+        this.showSyncNotification(`设备 ${data.deviceId?.substring(0, 8)}... 已断开`);
+    }
+    
+    // 发送菜单更新
+    sendMenuUpdate() {
+        if (this.isConnected && this.socket) {
+            this.socket.emit('menu_update', {
+                deviceId: this.deviceId,
+                menu: weekMenu,
+                timestamp: Date.now()
+            });
+        }
+    }
+    
+    // 尝试重新连接
+    attemptReconnect() {
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.reconnectAttempts++;
+            const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+            
+            console.log(`尝试重新连接... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+            setTimeout(() => this.connect(), delay);
+        }
+    }
+    
+    // 更新连接状态显示
+    updateStatus(connected) {
+        const indicator = document.getElementById('syncIndicator');
+        const statusText = document.getElementById('syncStatusText');
+        
+        if (connected) {
+            indicator.classList.add('connected');
+            statusText.textContent = '已同步';
+        } else {
+            indicator.classList.remove('connected');
+            statusText.textContent = '未连接';
+        }
+    }
+    
+    // 显示同步通知
+    showSyncNotification(message) {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: #4bb543;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 1001;
+            max-width: 300px;
+            word-wrap: break-word;
+            animation: slideIn 0.3s ease;
+        `;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }
+        }, 3000);
+    }
+}
+
+// 修改保存菜单函数，添加同步功能
+const originalSaveMenu = saveMenu;
+saveMenu = function() {
+    localStorage.setItem('pomegranateBistroMenu', JSON.stringify(weekMenu));
+    
+    // 同步到其他设备
+    if (syncManager && syncManager.isConnected) {
+        syncManager.sendMenuUpdate();
+    }
+    
+    alert('菜单已保存并同步！');
+};
+
+// 修改添加菜品到菜单函数，添加同步功能
+const originalAddDishToMenu = addDishToMenu;
+addDishToMenu = function() {
+    if (!selectedDish || !selectedDay) {
+        alert('请先选择菜品和日期！');
+        return;
+    }
+    
+    const dayKey = getDayKey(selectedDay);
+    if (weekMenu[dayKey].includes(selectedDish)) {
+        alert('该菜品已存在于当天的菜单中！');
+        return;
+    }
+    
+    weekMenu[dayKey].push(selectedDish);
+    updateDayMenu(dayKey);
+    
+    // 自动保存并同步
+    saveMenu();
+    
+    closeModal();
+};
+
+// 修改从菜单中移除菜品函数，添加同步功能
+const originalRemoveDishFromMenu = removeDishFromMenu;
+removeDishFromMenu = function(dayKey, dishName) {
+    weekMenu[dayKey] = weekMenu[dayKey].filter(dish => dish !== dishName);
+    updateDayMenu(dayKey);
+    
+    // 自动保存并同步
+    saveMenu();
+};
+
+// 修改随机生成菜单函数，添加同步功能
+const originalGenerateRandomMenu = generateRandomMenu;
+generateRandomMenu = function() {
+    if (confirm('这将替换当前菜单，确定要继续吗？')) {
+        // 清空当前菜单
+        for (const day in weekMenu) {
+            weekMenu[day] = [];
+        }
+        
+        // 为每一天随机选择菜品
+        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        const categoryKeys = Object.keys(dishCategories);
+        
+        days.forEach(day => {
+            // 每天选择2-3个菜品（从不同类别）
+            const numDishes = Math.floor(Math.random() * 2) + 2;
+            const selectedCategories = [];
+            
+            for (let i = 0; i < numDishes; i++) {
+                let categoryKey;
+                do {
+                    categoryKey = categoryKeys[Math.floor(Math.random() * categoryKeys.length)];
+                } while (selectedCategories.includes(categoryKey));
+                
+                selectedCategories.push(categoryKey);
+                
+                const dishesInCategory = dishCategories[categoryKey];
+                const randomDish = dishesInCategory[Math.floor(Math.random() * dishesInCategory.length)];
+                
+                if (!weekMenu[day].includes(randomDish)) {
+                    weekMenu[day].push(randomDish);
+                }
+            }
+        });
+        
+        // 更新显示
+        for (const day in weekMenu) {
+            updateDayMenu(day);
+        }
+        
+        // 自动保存并同步
+        saveMenu();
+    }
+};
+
+// 修改清空菜单函数，添加同步功能
+const originalResetMenu = resetMenu;
+resetMenu = function() {
+    if (confirm('确定要清空整个菜单吗？')) {
+        for (const day in weekMenu) {
+            weekMenu[day] = [];
+            updateDayMenu(day);
+        }
+        
+        // 自动保存并同步
+        saveMenu();
+    }
+};
+
+// 修改初始化函数，添加同步管理器初始化
+const originalInit = init;
+init = function() {
+    // 原有初始化
+    originalInit();
+    
+    // 初始化同步管理器
+    syncManager = new SyncManager();
+    syncManager.connect();
+};
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
